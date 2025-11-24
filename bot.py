@@ -4,7 +4,7 @@ import schedule
 import time
 from datetime import datetime
 import sys
-from scraper import BestBuyScraper
+from api_scraper import BestBuyAPIScraper
 from notifier import Notifier
 from storage import DealStorage
 import config
@@ -14,7 +14,21 @@ class PriceBot:
     """Main bot class for monitoring and notifying about deals."""
     
     def __init__(self):
-        self.scraper = BestBuyScraper()
+        if not config.BESTBUY_API_KEY or config.BESTBUY_API_KEY == 'YOUR_API_KEY_HERE':
+            print("="*80)
+            print("❌ Best Buy API Key Required!")
+            print("="*80)
+            print("\n1. Get your FREE API key at:")
+            print("   https://bestbuyapis.github.io/bby-query-builder/\n")
+            print("2. Add it to your .env file:")
+            print("   BESTBUY_API_KEY=your_key_here\n")
+            print("3. Run this bot again\n")
+            print("See API_SETUP.md for detailed instructions.")
+            print("="*80)
+            sys.exit(1)
+        
+        print("🔑 Using Best Buy Official API")
+        self.scraper = BestBuyAPIScraper(config.BESTBUY_API_KEY)
         self.notifier = Notifier()
         self.storage = DealStorage()
         self.run_count = 0
@@ -28,9 +42,9 @@ class PriceBot:
         print(f"{'='*80}\n")
         
         try:
-            # Scrape Best Buy for products
-            print("🔍 Scraping Best Buy for laptops and computers...")
-            products = self.scraper.scrape_all_categories()
+            # Query Best Buy API for products
+            print("🔍 Querying Best Buy API for laptops and computers...")
+            products = self.scraper.scrape_all_categories(max_per_category=100)
             print(f"Found {len(products)} total products\n")
             
             # Filter for deep discounts (65% or more off)

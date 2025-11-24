@@ -1,15 +1,17 @@
 # Best Buy Price Bot 🤖
 
-A Python bot that automatically scrapes Best Buy for computers and laptops with **65% or more discount** and notifies you when deals are found.
+A Python bot that uses the **official Best Buy API** to monitor computers and laptops with **65% or more discount** and notifies you when deals are found.
 
 ## Features
 
-- 🔍 **Automated Scraping**: Monitors Best Buy for laptop and desktop computer deals
+- 🔑 **Official Best Buy API**: Uses Best Buy's official API (no blocking, no scraping issues!)
+- 🆓 **Free**: 50,000 API calls per day on free tier (you'll use ~100-150/day)
 - 💰 **Deep Discount Detection**: Finds products 65% or more below retail price
 - 🔔 **Multiple Notification Methods**: Console alerts and optional email notifications
 - 📊 **Deal Tracking**: Prevents duplicate notifications for the same deals
 - ⏰ **Scheduled Monitoring**: Runs continuously at configurable intervals
 - 📝 **Deal Logging**: Saves all found deals to JSON file for review
+- ⚡ **Fast & Reliable**: Direct API access, no HTML parsing
 
 ## Requirements
 
@@ -26,20 +28,37 @@ A Python bot that automatically scrapes Best Buy for computers and laptops with 
 pip install -r requirements.txt
 ```
 
-3. **Configure settings** (optional):
+3. **Get a FREE Best Buy API Key** (highly recommended):
+   - Visit https://bestbuyapis.github.io/bby-query-builder/
+   - Click "Sign up for a Best Buy API Key"
+   - Complete the registration (takes 2 minutes)
+   - Copy your API key
+
+4. **Configure settings**:
    - Copy `env.example` to `.env`
-   - Edit `.env` to customize settings
+   - Add your Best Buy API key to `.env`
 
 ```bash
 cp env.example .env
+# Edit .env and add: BESTBUY_API_KEY=your_actual_key_here
 ```
+
+**Important:** This bot requires a Best Buy API key. The API is free and much better than web scraping:
+- ✅ No blocking issues
+- ✅ Fast and reliable
+- ✅ 50,000 calls/day free
+- ✅ Officially supported
+- ✅ Never breaks
 
 ## Configuration
 
-### Basic Settings (in `config.py`)
+### Basic Settings
 
-- `DISCOUNT_THRESHOLD`: Default is 0.35 (35% of retail = 65% off)
+Edit your `.env` file to customize:
+
+- `DISCOUNT_THRESHOLD`: Default is 0.35 (35% of retail = 65% off) - edit in `config.py`
 - `CHECK_INTERVAL_MINUTES`: How often to check (default: 30 minutes)
+- `MAX_PRODUCTS_PER_CATEGORY`: Max products to check per category (default: 100)
 
 ### Email Notifications (optional)
 
@@ -87,12 +106,14 @@ This is useful for testing your setup.
 
 ## How It Works
 
-1. **Scraping**: The bot visits Best Buy's laptop and desktop computer category pages
-2. **Price Analysis**: Extracts current prices and retail prices for each product
+1. **API Query**: Uses Best Buy's official Products API to search for laptops and desktops
+2. **Price Analysis**: Gets current sale prices and regular prices directly from Best Buy's database
 3. **Discount Calculation**: Identifies products where current price ≤ 35% of retail price (65%+ discount)
 4. **Notification**: Alerts you via console (and email if enabled) when deals are found
 5. **Tracking**: Saves deals to `deals_found.json` to avoid duplicate notifications
 6. **Scheduling**: Repeats the process at your configured interval
+
+**Why API?** No blocking, fast, reliable, and completely free (50,000 calls/day)!
 
 ## Output
 
@@ -161,31 +182,35 @@ DISCOUNT_THRESHOLD = 0.50
 
 ### Change Check Frequency
 
-Edit `.env` or `config.py`:
+Edit `.env`:
 
 ```env
 CHECK_INTERVAL_MINUTES=15  # Check every 15 minutes
+CHECK_INTERVAL_MINUTES=60  # Check once per hour
 ```
 
-### Add More Categories
+### Search More Products
 
-Edit `config.py` and add URLs to `BESTBUY_URLS`:
+Edit `.env`:
 
-```python
-BESTBUY_URLS = [
-    "https://www.bestbuy.com/site/searchpage.jsp?st=laptop...",
-    "https://www.bestbuy.com/site/searchpage.jsp?st=desktop...",
-    "https://www.bestbuy.com/site/searchpage.jsp?st=gaming+laptop...",  # Add more
-]
+```env
+MAX_PRODUCTS_PER_CATEGORY=200  # Check 200 laptops and 200 desktops
 ```
 
 ## Troubleshooting
 
+### "API Key Required" Error
+
+- Get your free API key at: https://bestbuyapis.github.io/bby-query-builder/
+- Add it to `.env`: `BESTBUY_API_KEY=your_key_here`
+- See `API_SETUP.md` for detailed instructions
+
 ### No products found
 
-- Best Buy may have updated their HTML structure. The scraper uses multiple fallback selectors but may need updates.
-- Check your internet connection
-- Best Buy may be blocking automated requests (try increasing `CHECK_INTERVAL_MINUTES`)
+- This is normal if there aren't any 65%+ discounts currently
+- Try lowering the discount threshold in `config.py` to see more deals
+- Verify your API key is correct in `.env`
+- Check you haven't exceeded rate limits (50,000 calls/day - very unlikely)
 
 ### Email not sending
 
@@ -198,16 +223,17 @@ BESTBUY_URLS = [
 
 - Check the error message in the console
 - Ensure all dependencies are installed: `pip install -r requirements.txt`
+- Verify your API key is set in `.env`
 - Try running with `--once` flag to test: `python3 bot.py --once`
 - Make sure you're using `python3` not `python` (Python 2.7 won't work)
 
 ## Important Notes
 
-⚠️ **Web Scraping Disclaimer**: 
-- This bot is for personal use only
-- Be respectful of Best Buy's servers (don't set interval too low)
-- Best Buy's website structure may change, requiring updates to the scraper
-- Always review Best Buy's Terms of Service
+⚠️ **API Usage**: 
+- This bot uses Best Buy's official API (free and legal!)
+- Free tier: 50,000 API calls per day
+- Each check uses 2-3 API calls (well within limits)
+- API Terms: https://developer.bestbuy.com/
 
 ⚠️ **Deal Verification**:
 - Always verify deals on Best Buy's website before purchasing
@@ -219,14 +245,15 @@ BESTBUY_URLS = [
 ```
 price-bot/
 ├── bot.py              # Main bot script
-├── scraper.py          # Best Buy web scraper
+├── api_scraper.py      # Best Buy API client
 ├── notifier.py         # Notification system
 ├── storage.py          # Deal tracking/storage
 ├── config.py           # Configuration settings
 ├── requirements.txt    # Python dependencies
 ├── env.example         # Example environment file
-├── README.md          # This file
-└── deals_found.json   # Generated: stored deals
+├── API_SETUP.md        # API key setup guide
+├── README.md           # This file
+└── deals_found.json    # Generated: stored deals
 ```
 
 ## License
