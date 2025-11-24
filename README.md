@@ -68,17 +68,19 @@ SMTP_PORT=587
 The bot will check for deals every 30 minutes (or your configured interval):
 
 ```bash
-python bot.py
+python3 bot.py
 ```
 
 Press `Ctrl+C` to stop the bot.
+
+**Note:** Use `python3` not `python` (which may point to Python 2.7 on your system)
 
 ### Run Once (Test Mode)
 
 To run a single check and exit:
 
 ```bash
-python bot.py --once
+python3 bot.py --once
 ```
 
 This is useful for testing your setup.
@@ -196,7 +198,8 @@ BESTBUY_URLS = [
 
 - Check the error message in the console
 - Ensure all dependencies are installed: `pip install -r requirements.txt`
-- Try running with `--once` flag to test: `python bot.py --once`
+- Try running with `--once` flag to test: `python3 bot.py --once`
+- Make sure you're using `python3` not `python` (Python 2.7 won't work)
 
 ## Important Notes
 
