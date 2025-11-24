@@ -7,11 +7,21 @@ load_dotenv()
 # Discount threshold (65% below retail = 35% of original price or less)
 DISCOUNT_THRESHOLD = 0.35  # Item must be 35% or less of retail price
 
-# Best Buy search URLs for computers and laptops
+# Best Buy URLs - Using simpler category pages
 BESTBUY_URLS = [
-    "https://www.bestbuy.com/site/searchpage.jsp?st=laptop&_dyncharset=UTF-8&_dynSessConf=&id=pcat17071&type=page&sc=Global&cp=1&nrp=&sp=&qp=&list=n&af=true&iht=y&usc=All+Categories&ks=960&keys=keys",
-    "https://www.bestbuy.com/site/searchpage.jsp?st=desktop+computer&_dyncharset=UTF-8&_dynSessConf=&id=pcat17071&type=page&sc=Global&cp=1&nrp=&sp=&qp=&list=n&af=true&iht=y&usc=All+Categories&ks=960&keys=keys"
+    # Laptop deals page (more likely to have actual deals)
+    "https://www.bestbuy.com/site/laptop-computers/all-laptops/pcmcat138500050001.c?id=pcmcat138500050001",
+    # Desktop computers page
+    "https://www.bestbuy.com/site/computers-pcs/desktop-computers/abcat0501000.c?id=abcat0501000",
+    # Deal of the day (often has good discounts)
+    "https://www.bestbuy.com/site/electronics/top-deals/pcmcat1563299784494.c?id=pcmcat1563299784494",
 ]
+
+# Alternative: simpler search URLs (uncomment to use instead)
+# BESTBUY_URLS = [
+#     "https://www.bestbuy.com/site/searchpage.jsp?st=laptop",
+#     "https://www.bestbuy.com/site/searchpage.jsp?st=desktop+computer",
+# ]
 
 # Notification settings
 ENABLE_EMAIL_NOTIFICATIONS = os.getenv('ENABLE_EMAIL_NOTIFICATIONS', 'false').lower() == 'true'
@@ -23,7 +33,10 @@ SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
 
 # Scraping settings
 CHECK_INTERVAL_MINUTES = int(os.getenv('CHECK_INTERVAL_MINUTES', '30'))
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+RETRY_ATTEMPTS = int(os.getenv('RETRY_ATTEMPTS', '3'))
+REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', '30'))
+MIN_DELAY_SECONDS = int(os.getenv('MIN_DELAY_SECONDS', '2'))
+MAX_DELAY_SECONDS = int(os.getenv('MAX_DELAY_SECONDS', '5'))
 
 # Storage
 DEALS_LOG_FILE = 'deals_found.json'

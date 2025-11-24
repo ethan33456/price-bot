@@ -4,3 +4,8 @@ lxml>=4.9.0
 schedule>=1.2.0
 python-dotenv>=1.0.0
 
+# Optional: For Selenium scraper (more reliable, harder to block)
+# Uncomment to use Selenium instead of requests:
+# selenium>=4.15.0
+# webdriver-manager>=4.0.0
+

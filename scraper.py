@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import json
+import random
 from typing import List, Dict, Optional
 import config
 
@@ -11,62 +12,119 @@ class BestBuyScraper:
     """Scraper for Best Buy website to find computer deals."""
     
     def __init__(self):
-        self.headers = {
-            'User-Agent': config.USER_AGENT,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
-        }
+        # Rotate through multiple realistic user agents
+        self.user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        ]
         self.session = requests.Session()
-        self.session.headers.update(self.headers)
+        self._update_headers()
     
-    def scrape_category_page(self, url: str) -> List[Dict]:
+    def _update_headers(self):
+        """Update session headers with a random user agent."""
+        self.session.headers.update({
+            'User-Agent': random.choice(self.user_agents),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'max-age=0'
+        })
+    
+    def scrape_category_page(self, url: str, retry_count: int = 3) -> List[Dict]:
         """
-        Scrape a Best Buy category page for products.
+        Scrape a Best Buy category page for products with retry logic.
         
         Args:
             url: The Best Buy category URL to scrape
+            retry_count: Number of retries on failure
             
         Returns:
             List of product dictionaries with name, current_price, retail_price, url, etc.
         """
         products = []
         
-        try:
-            print(f"Scraping: {url}")
-            response = self.session.get(url, timeout=15)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'lxml')
-            
-            # Best Buy uses various selectors, we'll try multiple approaches
-            # Approach 1: Look for product list items
-            product_items = soup.find_all('li', class_='sku-item')
-            
-            if not product_items:
-                # Approach 2: Look for alternative product containers
-                product_items = soup.find_all('div', class_='shop-sku-list-item')
-            
-            print(f"Found {len(product_items)} products on page")
-            
-            for item in product_items:
-                try:
-                    product = self._extract_product_info(item)
-                    if product:
-                        products.append(product)
-                except Exception as e:
-                    print(f"Error extracting product: {e}")
-                    continue
-            
-            # Add a small delay to be respectful to the server
-            time.sleep(2)
-            
-        except requests.RequestException as e:
-            print(f"Error fetching URL {url}: {e}")
-        except Exception as e:
-            print(f"Unexpected error scraping {url}: {e}")
+        for attempt in range(retry_count):
+            try:
+                if attempt > 0:
+                    # Exponential backoff: wait longer between retries
+                    wait_time = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"Retry attempt {attempt + 1}/{retry_count}, waiting {wait_time:.1f}s...")
+                    time.sleep(wait_time)
+                    # Update headers with new user agent for retry
+                    self._update_headers()
+                
+                print(f"Scraping: {url}")
+                
+                # Add random delay before request (2-5 seconds)
+                time.sleep(random.uniform(2, 5))
+                
+                response = self.session.get(url, timeout=30, allow_redirects=True)
+                response.raise_for_status()
+                
+                # Check if we got blocked (common block pages)
+                if 'blocked' in response.text.lower() or len(response.content) < 1000:
+                    print(f"⚠️  Possible block detected (response too small: {len(response.content)} bytes)")
+                    if attempt < retry_count - 1:
+                        continue
+                    else:
+                        print("❌ All retry attempts exhausted")
+                        return products
+                
+                soup = BeautifulSoup(response.content, 'lxml')
+                
+                # Best Buy uses various selectors, we'll try multiple approaches
+                # Approach 1: Look for product list items
+                product_items = soup.find_all('li', class_='sku-item')
+                
+                if not product_items:
+                    # Approach 2: Look for alternative product containers
+                    product_items = soup.find_all('div', class_='shop-sku-list-item')
+                
+                if not product_items:
+                    # Approach 3: Try JSON data embedded in page
+                    script_tags = soup.find_all('script', type='application/ld+json')
+                    for script in script_tags:
+                        try:
+                            data = json.loads(script.string)
+                            if isinstance(data, dict) and 'itemListElement' in data:
+                                products.extend(self._extract_from_json(data))
+                        except:
+                            continue
+                
+                print(f"Found {len(product_items)} products on page")
+                
+                for item in product_items:
+                    try:
+                        product = self._extract_product_info(item)
+                        if product:
+                            products.append(product)
+                    except Exception as e:
+                        print(f"Error extracting product: {e}")
+                        continue
+                
+                # Success - break out of retry loop
+                break
+                
+            except requests.exceptions.Timeout as e:
+                print(f"⏱️  Timeout on attempt {attempt + 1}/{retry_count}: {e}")
+                if attempt == retry_count - 1:
+                    print(f"❌ Failed after {retry_count} attempts")
+            except requests.RequestException as e:
+                print(f"🚫 Request error on attempt {attempt + 1}/{retry_count}: {e}")
+                if attempt == retry_count - 1:
+                    print(f"❌ Failed after {retry_count} attempts")
+            except Exception as e:
+                print(f"Unexpected error scraping {url}: {e}")
+                break
         
         return products
     
@@ -188,6 +246,48 @@ class BestBuyScraper:
         
         discount = ((retail_price - current_price) / retail_price) * 100
         return round(discount, 2)
+    
+    def _extract_from_json(self, data: Dict) -> List[Dict]:
+        """
+        Extract product data from JSON-LD structured data.
+        
+        Args:
+            data: JSON-LD data dictionary
+            
+        Returns:
+            List of product dictionaries
+        """
+        products = []
+        try:
+            if 'itemListElement' in data:
+                for item in data['itemListElement']:
+                    if isinstance(item, dict) and 'item' in item:
+                        product_data = item['item']
+                        product = {
+                            'name': product_data.get('name', ''),
+                            'url': product_data.get('url', ''),
+                            'current_price': 0,
+                            'retail_price': 0,
+                            'discount_percent': 0
+                        }
+                        
+                        # Extract price info
+                        if 'offers' in product_data:
+                            offers = product_data['offers']
+                            if isinstance(offers, dict):
+                                price = offers.get('price', 0)
+                                try:
+                                    product['current_price'] = float(price)
+                                    product['retail_price'] = float(price)
+                                except:
+                                    pass
+                        
+                        if product['name'] and product['current_price'] > 0:
+                            products.append(product)
+        except Exception as e:
+            print(f"Error extracting from JSON: {e}")
+        
+        return products
     
     def scrape_all_categories(self) -> List[Dict]:
         """
